@@ -17,13 +17,13 @@ public class HealthContainer {
 	private void removeStaleEntries() {
 		long currTime = (new Date()).getTime();
 		if (currTime - lastRefreshed > 1000) {
-			lastRefreshed = currTime;
 			for (Map.Entry<URI, Date> entry : unhealthyItems.entrySet()) {
 				if (currTime - entry.getValue().getTime()
 						+ (currTime - lastRefreshed) > 30000) {
 					unhealthyItems.remove(entry.getKey());
 				}
 			}
+			lastRefreshed = currTime;
 		}
 	}
 
