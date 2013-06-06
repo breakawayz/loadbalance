@@ -18,21 +18,24 @@ Consumers need to have a Maven setup on their local. Afterwards, a 'mvn clean in
 Usage
 =====
 Consumers need to first populate the LoadBalancer with URIs before usage. This can be accomplished by passing a List<URI> of desired balancees, along with a String key, to LoadBalancer.initializeGroup as so:
+````
 LoadBalancer.initializeGroup(balancees, key);
-
+````
 The key argument would need to be used with any subsequent request to the LoadBalancer in order to get the correct group of balancees.
 
 Subsequently, consumers are then able to ask for URIs which will be delivered fairly. Consumers should return the resource once done to ensure fairness across the balancees.
+````
 URI resource = LoadBalancer.getBestResource(key);
 //Operate on the URI somehow
 LoadBalancer.returnResource(resource);
-
+````
 If, while operating on the URI, the consumer found that the URI pointed at an unavailable resource, the consumer could report that URI as unhealthy as below. It is good practice to return the URI as well, to ensure that fairness will resume when the resource becomes available again.
+````
 LoadBalancer.reportUnhealthy(resource);
 LoadBalancer.returnResource(resource);
-
+````
 If sticky sessions are needed, the facility is provided to the consumer to give a strategy to return a URI based on that strategy, provided with a key. The signature is below.
-
+````
 LoadBalancer.getStickyURI(String key, String stickySessionIdentifier, StickySessionStrategy strategy)
-
+````
 It is important to note that the sticky URI retrieval also participates in the fairness. That is to say, if the consumer desires to make certain requests sticky and others not, the balancees returned by the load balancer will still be fair as according to the number of outstanding requests per load balancee.
