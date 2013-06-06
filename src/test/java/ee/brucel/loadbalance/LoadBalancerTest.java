@@ -483,6 +483,7 @@ public class LoadBalancerTest {
 
 	private class WebGetStrategy implements ResourceWorkStrategy<String> {
 		public String processWork(URI uri, Map<String, Object> parameters) throws ResourceUnhealthyException, IllegalArgumentException {
+			//Pulled and modified from: http://stackoverflow.com/a/238634/1768374
 		    URL url;
 		    InputStream is = null;
 		    BufferedReader br;
