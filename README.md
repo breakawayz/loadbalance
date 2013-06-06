@@ -39,7 +39,7 @@ It is important to note that the sticky URI retrieval also participates in the f
 
 Implementing ResourceWorkStrategy
 =================================
-ResourceWorkStrategy is expected to be implementing with a specific return type in mind. Thus, a ResourceWorkStrategy<String> implementation would return a String as a result of the work done.
+ResourceWorkStrategy is expected to be implementing with a specific return type in mind. Thus, a ResourceWorkStrategy&lt;String&gt; implementation would return a String as a result of the work done.
 
 The class definition for such an implementation might look like:
 ````
