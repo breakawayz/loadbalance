@@ -13,11 +13,11 @@ Features
 
 Building
 ========
-Consumers need to have a Maven setup on their local. Afterwards, a 'mvn clean install' will generally put loadbalance-<version number>.jar into their local Maven repository assuming a successful build.
+Consumers need to have a Maven setup on their local. Afterwards, a 'mvn clean install' will generally put loadbalance-&lt;version number&gt;.jar into their local Maven repository assuming a successful build.
 
 Usage
 =====
-Consumers need to first populate the LoadBalancer with URIs before usage. This can be accomplished by passing a List<URI> of desired balancees, along with a String key, to LoadBalancer.initializeGroup as so:
+Consumers need to first populate the LoadBalancer with URIs before usage. This can be accomplished by passing a List&lt;URI&gt; of desired balancees, along with a String key, to LoadBalancer.initializeGroup as so:
 ````
 LoadBalancer.initializeGroup(balancees, key);
 ````
