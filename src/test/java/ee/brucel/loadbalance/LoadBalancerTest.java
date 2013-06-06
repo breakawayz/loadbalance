@@ -157,7 +157,7 @@ public class LoadBalancerTest {
 						try {
 							// simulate the consumer doing something with
 							// the URI
-							Thread.sleep(random.nextInt(50) + 1);
+							Thread.sleep(50);
 						} catch (InterruptedException e) {
 							// TODO Auto-generated catch block
 							e.printStackTrace();
@@ -192,8 +192,7 @@ public class LoadBalancerTest {
 		// The reason for appearing slightly
 		// unfair is that if multiple threads are working with the
 		// same URI, then that URI is then less likely to be given
-		// to other threads. This, plus intentional randomness,
-		// plus randomness due to task scheduling, means that
+		// to other threads. This randomness due to task scheduling, means that
 		// straight equal numbers are not expected (nor desired)
 		Assert.assertTrue(nwww1 / 3250 == 1);
 		Assert.assertTrue(nwww3 / 3250 == 1);
@@ -202,8 +201,75 @@ public class LoadBalancerTest {
 	}
 
 	@Test
+	public void testMultiThreadedBehaviorIsFairWithUnequalLoad() throws InterruptedException {
+		simpleTestSetup();
+		final AtomicInteger www1 = new AtomicInteger(0);
+		final AtomicInteger www2 = new AtomicInteger(0);
+		final AtomicInteger www3 = new AtomicInteger(0);
+
+		int numThreads = 100;
+		Thread[] threads = new Thread[numThreads];
+		for (int i = 0; i < numThreads; i++) {
+			threads[i] = new Thread() {
+				public void run() {
+					Random random = new Random();
+					for (int i = 0; i < 100; i++) {
+						URI item = LoadBalancer
+								.getBestResource(LOAD_BALANCER_KEY);
+						try {
+							if (item.toASCIIString().contains("www1")) {
+								www1.incrementAndGet();
+								//Pretend that www1 is relatively fast
+								Thread.sleep(1);
+							}
+							if (item.toASCIIString().contains("www2")) {
+								www2.incrementAndGet();
+								//Pretend that www2 is somewhere in the middle
+								Thread.sleep(20);
+							}
+							if (item.toASCIIString().contains("www3")) {
+								www3.incrementAndGet();
+								//Pretend that www3 is dead slow
+								Thread.sleep(50);
+							}
+
+						} catch (InterruptedException e) {
+							// TODO Auto-generated catch block
+							e.printStackTrace();
+						}
+						// Return the URI once done with it.
+						LoadBalancer.returnResource(LOAD_BALANCER_KEY, item);
+					}
+				}
+			};
+		}
+		for (int i = 0; i < numThreads; i++) {
+			threads[i].start();
+		}
+		for (int i = 0; i < numThreads; i++) {
+			threads[i].join();
+		}
+		int nwww1 = www1.get();
+		int nwww2 = www2.get();
+		int nwww3 = www3.get();
+
+		// Sanity check.
+		Assert.assertEquals(10000, nwww1 + nwww2 + nwww3);
+
+		//Since www1 is 'returning' so much faster than the others, 
+		//the load balancer thinks that it can handle more requests.
+		//Thus, we should see that nwww1 has more completed requests
+		//than www2, and www2 than www3.
+		Assert.assertTrue(nwww1 > nwww2);
+		Assert.assertTrue(nwww2 > nwww3);
+	}
+
+
+	@Test
 	public void testHealthReporting() throws InterruptedException {
-		Assume.assumeTrue(false);
+		//This test takes a while. If doing active development, uncomment
+		//but don't commit!
+		//Assume.assumeTrue(false);
 		List<URI> balancees = simpleTestSetup();
 		// Grab www1 from the list.
 		URI toMarkAsUnhealthy = LoadBalancer.getBestResource(LOAD_BALANCER_KEY);
