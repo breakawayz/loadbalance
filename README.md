@@ -58,7 +58,7 @@ public String processWork(URI uri, Map<String, Object> parameters) throws Resour
 }
 ````
 
-Something more robust, which relies on the URIs in the loadbalancer population being HTTP URIs, might look like the below. This function would attempt to HTTP-GET the item in the sub-path listed by the consumer-supplied parameter PATH. Note that the implementation throws both IllegalArgumentException (if something in the parameters Map is of issue) as well as ResourceUnhealthyException (when the implementation believes that the passed in resource is unhealthy for whatever reason).
+Something more interesting, which relies on the URIs in the loadbalancer population being HTTP URIs, might look like the below. This function would attempt to HTTP-GET the item in the sub-path listed by the consumer-supplied parameter PATH and return the body of the HTTP response as a String. Note that the implementation throws both IllegalArgumentException (if something in the parameters Map is of issue) as well as ResourceUnhealthyException (when the implementation believes that the passed in resource is unhealthy for whatever reason).
 ````
 public String processWork(URI uri, Map<String, Object> parameters) throws ResourceUnhealthyException, IllegalArgumentException {
 	//Pulled and modified from: http://stackoverflow.com/a/238634/1768374
