@@ -1,7 +1,7 @@
 loadbalance
 ===========
 
-I've made a very simple software 'load balancer' in Java for fun. It does not attempt to actually connect to the resources that it balances, but instead serves out a URI to the consumer and subsequently relies on the consumer to perform whatever operation it needs to and return the URI to the load balancer [preferably in a try/finally block].
+I've made a very simple software 'load balancer' in Java for fun. The consumer is to specify ResourceWorkStrategy<ReturnType> implementations to use, which will perform the work on the URI.
 
 Features
 ========
@@ -10,6 +10,7 @@ Features
 - Operates under multithreaded execution. See testMultiThreadedBehaviorIsFair which shows this.
 - Supports sticky sessions (based off of a String representation of a sticky session ID), with the ability for the consumer to define their own strategy of how that sticky session ID maps to a given array of URIs. Examples of usage are provided in the unit tests testShowStringHashingStickyStrategy and testShowAnotherStickyStrategy.
 - Supports multiple groups of load balancees, segmented by a String representation of a key. An example of what this means is provided in the unit test testMultipleKeyDoesNotCauseConflict.
+- Strategy-based usage of resources. Does not limit consumers to simple web concepts, but would allow for flexible activities based on what the consumer's needs are.
 
 Building
 ========
@@ -23,19 +24,41 @@ LoadBalancer.initializeGroup(balancees, key);
 ````
 The key argument would need to be used with any subsequent request to the LoadBalancer in order to get the correct group of balancees.
 
-Subsequently, consumers are then able to ask for URIs which will be delivered fairly. Consumers should return the resource once done to ensure fairness across the balancees.
+If no need for sticky sessions exist, the following signature is to be used. This will perform the work listed in the ResourceWorkStrategy implementation, upon the URI that is currently least burdened.
+````
+public static <T> T doWorkOnBestBalancee(String key, ResourceWorkStrategy<T> strategy, Map<String, Object> parameters)
+````
+If sticky sessions are desired, a similar signature allows this, and adds in the need for a StickySessionStrategy as well as a 'session key' to be potentially used within the StickySessionStrategy.
+````
+public static <T> T doWorkOnStickyBalancee(String key, ResourceWorkStrategy<T> strategy, Map<String, Object> parameters, StickySessionStrategy stickyStrategy, String stickySessionIdentifier) throws ResourceUnhealthyException
+````
+
+It is important to note that the sticky URI retrieval also participates in the fairness. That is to say, if the consumer desires to make certain requests sticky and others not, the balancees returned by the load balancer will still be fair as according to the number of outstanding requests per load balancee.
+
+Implementing ResourceWorkStrategy
+=================================
+To Be Documented...
+
+Implementing StickySessionStrategy
+==================================
+To Be Documented...
+
+Internal API
+============
+Consumers will generally not be able to call into these functions. However, their behavior is listed here for inquisitive minds.
+
+The following function allows the internals to ask for URIs which will be delivered fairly. The internal API should return the resource once done to ensure fairness across the balancees.
 ````
 URI resource = LoadBalancer.getBestResource(key);
 //Operate on the URI somehow
 LoadBalancer.returnResource(resource);
 ````
-If, while operating on the URI, the consumer found that the URI pointed at an unavailable resource, the consumer could report that URI as unhealthy as below. It is good practice to return the URI as well, to ensure that fairness will resume when the resource becomes available again.
+If, while operating on the URI, the internal API found that the URI pointed at an unavailable resource, the API should report that URI as unhealthy as below. It is good practice to return the URI as well, to ensure that fairness will resume when the resource becomes available again.
 ````
 LoadBalancer.reportUnhealthy(resource);
 LoadBalancer.returnResource(resource);
 ````
-If sticky sessions are needed, the facility is provided to the consumer to give a strategy to return a URI based on that strategy, provided with a key. The signature is below.
+If sticky sessions are needed, the facility is provided to the consumer to give a strategy to return a URI based on that strategy, provided with a key. The signature that the internal API uses is below.
 ````
 LoadBalancer.getStickyURI(String key, String stickySessionIdentifier, StickySessionStrategy strategy)
 ````
-It is important to note that the sticky URI retrieval also participates in the fairness. That is to say, if the consumer desires to make certain requests sticky and others not, the balancees returned by the load balancer will still be fair as according to the number of outstanding requests per load balancee.
