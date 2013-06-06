@@ -55,6 +55,12 @@ public class LoadBalancer {
 
 	}
 
+	//Returns a URI based on the balancee group, the sticky session identifier,
+	//and a strategy that ostensibly selects a URI in a consistent manner given
+	//the other arguments.
+	//Note: This does not do any checks against the health. There is an 
+	//assumption that the consumer would rather have a URI that does not work
+	//rather than non-sticky [inconsistent] behavior based on server health.
 	public static URI getStickyURI(String key, String stickySessionIdentifier,
 			StickySessionStrategy strategy) {
 		URI uri = strategy.giveURIByStrategy(stickySessionIdentifier,
