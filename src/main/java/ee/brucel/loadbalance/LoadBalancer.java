@@ -72,6 +72,7 @@ public class LoadBalancer {
 					if (balancee.availablePermits() == 0) {
 						requiresPermits = true;
 					}
+					break;
 				}
 			}
 			if (requiresPermits) {
