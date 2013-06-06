@@ -173,6 +173,9 @@ public class LoadBalancerTest {
 		// Sanity check.
 		Assert.assertEquals(10000, nwww1 + nwww2 + nwww3);
 
+		// Why am I doing this strange thing where I'm not checking
+		// for all of the numbers being 3333/3334, but instead checking
+		// that they are all greater than a number below that?
 		// Load balancing will not show exactly even numbers, but should
 		// be fair based on the workload that the consumer is doing with the
 		// URI.
