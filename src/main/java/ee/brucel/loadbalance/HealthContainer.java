@@ -5,7 +5,7 @@ import java.util.Date;
 import java.util.HashMap;
 import java.util.Map;
 
-public class HealthContainer {
+class HealthContainer {
 	private long lastRefreshed = -1;
 	private Map<URI, Date> unhealthyItems = new HashMap<URI, Date>();
 
