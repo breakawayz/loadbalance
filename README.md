@@ -1,12 +1,12 @@
 loadbalance
 ===========
 
-I've made a very simple software 'load balancer' in Java for fun. The consumer is to specify ResourceWorkStrategy&lt;ReturnType&gt; implementations to use, which will perform the work on the URI.
+I've made a very simple software 'load balancer' in Java for fun. The consumer is to specify ResourceWorkStrategy&lt;ReturnType&gt; implementations to use, which will perform the work on the best (or sticky) balancee candidate.
 
 Features
 ========
-- A concept of 'fairness'. If a balancee has more open requests out to it than its siblings, its siblings will be considered for balancing prior to that balancee. See testFairnessWhenBalanceesTakeLongTime for a 'story' example.
-- Ability for consumers to report health (and for unhealthy resources to be removed from load balancing consideration). See testHealthReporting for an example of usage.
+- A concept of 'fairness'. If a balancee has more open requests out to it than its siblings, its siblings will be considered for balancing prior to that balancee. See testFairnessWhenBalanceesTakeLongTime for a 'story' example of what happens internally.
+- Ability for consumers to report health (and for unhealthy resources to be removed from load balancing consideration). See testHealthReporting for an example of how the internal API deals with this.
 - Operates under multithreaded execution. See testMultiThreadedBehaviorIsFair which shows this.
 - Supports sticky sessions (based off of a String representation of a sticky session ID), with the ability for the consumer to define their own strategy of how that sticky session ID maps to a given array of URIs. Examples of usage are provided in the unit tests testShowStringHashingStickyStrategy and testShowAnotherStickyStrategy.
 - Supports multiple groups of load balancees, segmented by a String representation of a key. An example of what this means is provided in the unit test testMultipleKeyDoesNotCauseConflict.
@@ -26,12 +26,12 @@ The key argument would need to be used with any subsequent request to the LoadBa
 
 If no need for sticky sessions exist, the following signature is to be used. This will perform the work listed in the ResourceWorkStrategy implementation, upon the URI that is currently least burdened.
 ````
-public static &lt;T&gt; T doWorkOnBestBalancee(String key, ResourceWorkStrategy&lt;T&gt; strategy, Map&lt;String, Object&gt; parameters)
+public static <T> T doWorkOnBestBalancee(String key, ResourceWorkStrategy<T> strategy, Map<String, Object> parameters)
 ````
 If sticky sessions are desired, a similar signature allows this, and adds in the need for a StickySessionStrategy as well as a 'session key' to be potentially used within the StickySessionStrategy.
 ````
-public static &lt;T&gt; T doWorkOnStickyBalancee(String key, ResourceWorkStrategy&lt;T&gt; strategy, 
-Map&lt;String, Object&gt; parameters, StickySessionStrategy stickyStrategy, String stickySessionIdentifier) 
+public static <T> T doWorkOnStickyBalancee(String key, ResourceWorkStrategy<T> strategy, 
+	Map<String, Object> parameters, StickySessionStrategy stickyStrategy, String stickySessionIdentifier) 
 throws ResourceUnhealthyException
 ````
 
@@ -41,14 +41,14 @@ Implementing ResourceWorkStrategy
 =================================
 A "Hello World" [literally] implementation might include the below, for a ResourceWorkStrategy&lt;String&gt;
 ````
-public String processWork(URI uri, Map&lt;String, Object&gt; parameters) throws ResourceUnhealthyException, IllegalArgumentException {
-  return "Hello World";
+public String processWork(URI uri, Map<String, Object> parameters) throws ResourceUnhealthyException, IllegalArgumentException {
+	return "Hello World";
 }
 ````
 
 Something more robust, which relies on the URIs in the loadbalancer population being HTTP URIs, might look like the below. This function would attempt to HTTP-GET the item in the sub-path listed by the consumer-supplied parameter PATH. Note that the implementation throws both IllegalArgumentException (if something in the parameters Map is of issue) as well as ResourceUnhealthyException (when the implementation believes that the passed in resource is unhealthy for whatever reason).
 ````
-public String processWork(URI uri, Map&lt;String, Object&gt; parameters) throws ResourceUnhealthyException, IllegalArgumentException {
+public String processWork(URI uri, Map<String, Object> parameters) throws ResourceUnhealthyException, IllegalArgumentException {
 	URL url;
 	InputStream is = null;
 	BufferedReader br;
