@@ -1,12 +1,12 @@
 loadbalance
 ===========
 
-I've made a very simple software 'load balancer' in Java for fun. The consumer is to specify ResourceWorkStrategy&lt;ReturnType&gt; implementations to use, which will perform the work on the best (or sticky) balancee candidate.
+I've made a very simple software 'load balancer' in Java for fun. The consumer is to specify ResourceWorkStrategy&lt;ReturnType&gt; implementations to use, which will perform the work on the URI.
 
 Features
 ========
-- A concept of 'fairness'. If a balancee has more open requests out to it than its siblings, its siblings will be considered for balancing prior to that balancee. See testFairnessWhenBalanceesTakeLongTime for a 'story' example of what happens internally.
-- Ability for consumers to report health (and for unhealthy resources to be removed from load balancing consideration). See testHealthReporting for an example of how the internal API deals with this.
+- A concept of 'fairness'. If a balancee has more open requests out to it than its siblings, its siblings will be considered for balancing prior to that balancee. See testFairnessWhenBalanceesTakeLongTime for a 'story' example.
+- Ability for consumers to report health (and for unhealthy resources to be removed from load balancing consideration). See testHealthReporting for an example of usage.
 - Operates under multithreaded execution. See testMultiThreadedBehaviorIsFair which shows this.
 - Supports sticky sessions (based off of a String representation of a sticky session ID), with the ability for the consumer to define their own strategy of how that sticky session ID maps to a given array of URIs. Examples of usage are provided in the unit tests testShowStringHashingStickyStrategy and testShowAnotherStickyStrategy.
 - Supports multiple groups of load balancees, segmented by a String representation of a key. An example of what this means is provided in the unit test testMultipleKeyDoesNotCauseConflict.
@@ -39,6 +39,18 @@ It is important to note that the sticky URI retrieval also participates in the f
 
 Implementing ResourceWorkStrategy
 =================================
+ResourceWorkStrategy is expected to be implementing with a specific return type in mind. Thus, a ResourceWorkStrategy<String> implementation would return a String as a result of the work done.
+
+The class definition for such an implementation might look like:
+````
+public class StringReturningWorkStrategy implements ResourceWorkStrategy<String> {
+	public String processWork(URI uri, Map<String, Object> parameters) 
+		throws ResourceUnhealthyException, IllegalArgumentException {
+		... some implementation ...
+	}
+}
+````
+
 A "Hello World" [literally] implementation might include the below, for a ResourceWorkStrategy&lt;String&gt;
 ````
 public String processWork(URI uri, Map<String, Object> parameters) throws ResourceUnhealthyException, IllegalArgumentException {
@@ -49,6 +61,7 @@ public String processWork(URI uri, Map<String, Object> parameters) throws Resour
 Something more robust, which relies on the URIs in the loadbalancer population being HTTP URIs, might look like the below. This function would attempt to HTTP-GET the item in the sub-path listed by the consumer-supplied parameter PATH. Note that the implementation throws both IllegalArgumentException (if something in the parameters Map is of issue) as well as ResourceUnhealthyException (when the implementation believes that the passed in resource is unhealthy for whatever reason).
 ````
 public String processWork(URI uri, Map<String, Object> parameters) throws ResourceUnhealthyException, IllegalArgumentException {
+	//Pulled and modified from: http://stackoverflow.com/a/238634/1768374
 	URL url;
 	InputStream is = null;
 	BufferedReader br;
