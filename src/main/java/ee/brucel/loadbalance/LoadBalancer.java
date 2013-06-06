@@ -15,7 +15,50 @@ public class LoadBalancer {
 	private static Map<String, HealthContainer> unhealthyURIs = new ConcurrentHashMap<String, HealthContainer>();
 	private static Map<String, URI[]> sortedURIs = new ConcurrentHashMap<String, URI[]>();
 
-	public static URI getBestResource(String key) {
+	public static <T> T doWorkOnBestBalancee(String key, ResourceWorkStrategy<T> strategy, Map<String, Object> parameters){
+		URI bestResource = getBestResource(key);
+		boolean workPerformed = false;
+		T returnValue = null;
+		int attemptCount = 0;
+		while (!workPerformed){
+			boolean unhealthy = false;
+			try{
+				returnValue = strategy.processWork(bestResource, parameters);
+			}catch(ResourceUnhealthyException rue){
+				unhealthy = true;
+			}finally{
+				returnResource(key, bestResource);
+			}
+			if (unhealthy){
+				reportUnhealthy(key, bestResource);
+				continue;
+			}else{
+				workPerformed = true;
+			}
+			bestResource = getBestResource(key);
+		}
+		return returnValue;
+	}
+
+	public static <T> T doWorkOnStickyBalancee(String key, 
+		ResourceWorkStrategy<T> strategy, Map<String, Object> parameters,
+		StickySessionStrategy stickyStrategy, String stickySessionIdentifier) throws ResourceUnhealthyException {
+		URI stickyResource = getStickyURI(key, stickySessionIdentifier,
+			stickyStrategy);
+		T returnValue = null;
+		try{
+			returnValue = strategy.processWork(stickyResource, parameters);
+		}catch(ResourceUnhealthyException rue){
+			logger.info(rue);
+			reportUnhealthy(key, stickyResource);
+			throw rue;
+		}finally{
+			returnResource(key, stickyResource);
+		}
+		return returnValue;
+	}
+
+	protected static URI getBestResource(String key) {
 		SortedSet<LoadBalancee> balancees = balanceeGroups.get(key);
 		if (balancees == null) {
 			return null;
@@ -61,7 +104,7 @@ public class LoadBalancer {
 	//Note: This does not do any checks against the health. There is an 
 	//assumption that the consumer would rather have a URI that does not work
 	//rather than non-sticky [inconsistent] behavior based on server health.
-	public static URI getStickyURI(String key, String stickySessionIdentifier,
+	protected static URI getStickyURI(String key, String stickySessionIdentifier,
 			StickySessionStrategy strategy) {
 		URI uri = strategy.giveURIByStrategy(stickySessionIdentifier,
 				sortedURIs.get(key));
@@ -91,11 +134,12 @@ public class LoadBalancer {
 		return uri;
 	}
 
-	public static void reportUnhealthy(String key, URI resource) {
+	protected static void reportUnhealthy(String key, URI resource) {
 		SortedSet<LoadBalancee> balancees = balanceeGroups.get(key);
 		if (balancees == null) {
 			return;
 		}
+		logger.warn(resource + " marked as unhealthy by LoadBalancer consumer");
 		synchronized (balancees) {
 			for (LoadBalancee balancee : balancees) {
 				if (balancee.getResource().equals(resource)) {
@@ -112,7 +156,7 @@ public class LoadBalancer {
 		}
 	}
 
-	public static void returnResource(String key, URI resource) {
+	protected static void returnResource(String key, URI resource) {
 		SortedSet<LoadBalancee> balancees = balanceeGroups.get(key);
 		if (balancees == null) {
 			return;
@@ -146,6 +190,8 @@ public class LoadBalancer {
 			sortedURIsValue[i++] = balancee.getResource();
 		}
 		sortedURIs.put(key, sortedURIsValue);
+		//Clear unhealthy URIs
+		unhealthyURIs.remove(key);
 	}
 
 	private static void addPermits(String key) {

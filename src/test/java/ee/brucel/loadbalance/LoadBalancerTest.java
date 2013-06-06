@@ -1,9 +1,17 @@
 package ee.brucel.loadbalance;
 
+import java.io.BufferedReader;
+import java.io.InputStream;
+import java.io.InputStreamReader;
+import java.io.IOException;
+import java.net.MalformedURLException;
 import java.net.URI;
 import java.net.URISyntaxException;
+import java.net.URL;
 import java.util.ArrayList;
+import java.util.HashMap;
 import java.util.List;
+import java.util.Map;
 import java.util.Random;
 import java.util.concurrent.atomic.AtomicInteger;
 
@@ -195,6 +203,7 @@ public class LoadBalancerTest {
 
 	@Test
 	public void testHealthReporting() throws InterruptedException {
+		Assume.assumeTrue(false);
 		List<URI> balancees = simpleTestSetup();
 		// Grab www1 from the list.
 		URI toMarkAsUnhealthy = LoadBalancer.getBestResource(LOAD_BALANCER_KEY);
@@ -296,6 +305,69 @@ public class LoadBalancerTest {
 		Assert.assertTrue(!myFirstURI.equals(anotherURI));
 	}
 
+	@Test
+	public void testSimpleWorkStrategy(){
+		List<URI> simpleTestSetup = simpleTestSetup();
+		ResourceWorkStrategy<String> strategy = new ResourceWorkStrategy<String>(){
+			public String processWork(URI uri, Map<String, Object> parameters) throws ResourceUnhealthyException, IllegalArgumentException {
+				return "Hello World";
+			}
+		};
+
+		Assert.assertEquals("Hello World", LoadBalancer.doWorkOnBestBalancee(LOAD_BALANCER_KEY, 
+			strategy, null));
+	}
+
+	@Test
+	public void testGetWebWorkStrategy(){
+		List<URI> uris = realURITestSetup();
+		Map<String, Object> parameters = new HashMap<String, Object>();
+		parameters.put("PATH", "/movies");		
+		ResourceWorkStrategy<String> strategy = new WebGetStrategy();
+		//Assume that Google will always have a link to YouTube on every page
+		Assert.assertTrue(LoadBalancer.doWorkOnBestBalancee(LOAD_BALANCER_KEY, 
+			strategy, parameters).contains("YouTube"));
+	}
+
+	@Test
+	public void testUnhealthyStickySituation(){
+		List<URI> uris = realURITestSetup();
+		ResourceWorkStrategy<Object> markUnhealthyStrategy = new MarkGoogleUnhealthyStrategy();
+
+		StickySessionStrategy pickFirstResource = new StickySessionStrategy() {
+			public URI giveURIByStrategy(String stickySessionKey, URI[] uris) {
+				//Let's always give the first one! That's a good strategy,
+				//right?
+				return uris[0];
+			}
+
+		};
+
+		try{
+			LoadBalancer.doWorkOnStickyBalancee(LOAD_BALANCER_KEY, 
+				markUnhealthyStrategy, null, pickFirstResource, null);
+		}catch(ResourceUnhealthyException rue){
+			//This should definitely happen. We're intentionally causing it.
+		}
+		//At this point, the only URI in the load balancer set should be
+		//marked as unhealthy.
+
+		Map<String, Object> parameters = new HashMap<String, Object>();
+		parameters.put("PATH", "/movies");		
+		ResourceWorkStrategy<String> strategy = new WebGetStrategy();
+
+		//Since this is a sticky situation, it will still attempt to
+		//run against the returned resource.
+		String result = "";
+		try{
+			result = LoadBalancer.doWorkOnStickyBalancee(LOAD_BALANCER_KEY, 
+				strategy, parameters, pickFirstResource, null);
+		}catch (ResourceUnhealthyException rue){
+			Assert.fail("Unless google.com/movies is down, shouldn't get here");
+		}
+		Assert.assertTrue(result.contains("YouTube"));
+	}
+
 	private List<URI> simpleTestSetup() {
 		List<URI> loadBalancees = new ArrayList<URI>();
 		try {
@@ -303,6 +375,17 @@ public class LoadBalancerTest {
 			loadBalancees.add(new URI("http://www2.brucel.ee"));
 			loadBalancees.add(new URI("http://www3.brucel.ee"));
 		} catch (URISyntaxException e) {
+			Assert.fail();
+		}
+		LoadBalancer.setupTest(loadBalancees, LOAD_BALANCER_KEY);
+		return loadBalancees;
+	}
+
+	private List<URI> realURITestSetup(){
+		List<URI> loadBalancees = new ArrayList<URI>();
+		try{
+			loadBalancees.add(new URI("http://www.google.com"));
+		}catch(URISyntaxException e){
 			Assert.fail();
 		}
 		LoadBalancer.setupTest(loadBalancees, LOAD_BALANCER_KEY);
@@ -322,4 +405,44 @@ public class LoadBalancerTest {
 		return loadBalancees;
 	}
 
+	private class MarkGoogleUnhealthyStrategy implements ResourceWorkStrategy<Object> {
+		public Object processWork(URI uri, Map<String, Object> parameters) throws ResourceUnhealthyException, IllegalArgumentException {
+			if (uri.toASCIIString().contains("google")){
+				throw new ResourceUnhealthyException("Spurious google unhealthy exception");
+			}
+			return null;
+		}
+
+	}
+
+	private class WebGetStrategy implements ResourceWorkStrategy<String> {
+		public String processWork(URI uri, Map<String, Object> parameters) throws ResourceUnhealthyException, IllegalArgumentException {
+		    URL url;
+		    InputStream is = null;
+		    BufferedReader br;
+		    String line;
+		    StringBuilder sb = new StringBuilder();
+			String attemptURL = "";
+		    try {
+		    	attemptURL = uri.toASCIIString() + (String)parameters.get("PATH");
+		        url = new URL(attemptURL);
+		        is = url.openStream();  // throws an IOException
+		        br = new BufferedReader(new InputStreamReader(is));
+		        while ((line = br.readLine()) != null) {
+		            sb.append(line);
+		        }
+		    } catch (MalformedURLException mue) {
+		    	throw new IllegalArgumentException(attemptURL);
+		    } catch (IOException ioe) {
+		    	throw new ResourceUnhealthyException("Test had an issue getting data from " + attemptURL, ioe);
+		    } finally {
+		        try {
+		            is.close();
+		        } catch (IOException ioe) {
+		            // nothing to see here
+		        }
+		    }
+			return sb.toString();
+		}
+	}
 }
